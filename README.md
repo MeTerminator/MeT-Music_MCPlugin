@@ -14,6 +14,10 @@
 
 ---
 
+## 播放端
+
+- 此插件并不负责客户端音乐播放，客户端音乐播放由额外的网页或播放器实现。具体代码将在后续开源。
+
 ## 兼容性与运行环境
 - **服务器内核**：建议 Paper 1.20.x（`compileOnly io.papermc.paper:paper-api:1.20.1`，`api-version: 1.16` 对常见 Spigot/Paper 有较好兼容）
 - **Java 版本**：Java 17（已在 `build.gradle` 设置 `sourceCompatibility/targetCompatibility`）
