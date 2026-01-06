@@ -30,12 +30,12 @@ import java.util.stream.Collectors;
 public class ApiClient {
 
     private static final String USER_AGENT = "MeT-Music_MCPlugin";
-    private static final String REPORT_URL = "https://music.met6.top:444/api-collect/user_report/player_feedback_mcserver.php";
-    private static final String SONG_URL_API = "https://music.met6.top:444/api/song/url/v1/?id=%s&level=hq";
-    private static final String LYRIC_API = "https://music.met6.top:444/api/songlyric_get.php?show=lyric&mid=%s";
-    private static final String SEARCH_API = "https://music.met6.top:444/api/cloudsearch/?keywords=%s&limit=%d&offset=%d&type=1";
-    private static final String PLAYLIST_DETAIL_API = "https://music.met6.top:444/api/playlist/detail/?id=%s";
-    private static final String PLAYLIST_TRACKS_API = "https://music.met6.top:444/api/playlist/track/all/?id=%s&limit=%d&offset=%d";
+    private static final String REPORT_URL = "https://music.met6.top:444/api/v1/collect/feedback/mcplugin";
+    private static final String SONG_URL_API = "https://music.met6.top:444/api/web/song/url/v1?id=%s&level=hq";
+    private static final String LYRIC_API = "https://music.met6.top:444/api/v1/lrc?mid=%s";
+    private static final String SEARCH_API = "https://music.met6.top:444/api/web/cloudsearch?keywords=%s&limit=%d&offset=%d&type=1";
+    private static final String PLAYLIST_DETAIL_API = "https://music.met6.top:444/api/web/playlist/detail?id=%s";
+    private static final String PLAYLIST_TRACKS_API = "https://music.met6.top:444/api/web/playlist/track/all?id=%s&limit=%d&offset=%d";
     private final Map<String, List<PlaylistSong>> playlistCache = new ConcurrentHashMap<>();
     private final Map<String, Integer> playlistTotalCountCache = new ConcurrentHashMap<>();
     private final Gson gson = new Gson();
