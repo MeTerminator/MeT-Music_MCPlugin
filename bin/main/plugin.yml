@@ -1,5 +1,5 @@
 name: MeT-Music
-version: 1.2
+version: 1.4
 main: top.met6.metmusic.MetMusicPlugin
 api-version: 1.16
 commands:

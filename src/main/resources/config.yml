@@ -1,0 +1,3 @@
+sid: ''
+# 可使用 {sid} 作为当前播放器会话 ID 的占位符。
+player-url: 'https://music.met6.top:444/player/?sid={sid}'

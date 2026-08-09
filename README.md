@@ -55,6 +55,7 @@
 - **信息与显示**
   - `/mmusic songinfo` 查看当前歌曲信息
   - `/mmusic setbossbar` 切换歌词 BossBar 显示状态（对自己）
+  - `/mmusic sid` 查看并点击复制当前 SID，或点击打开播放器链接
 
 Tab 补全：对一级子命令提供补全，并对部分参数给予提示。
 
@@ -63,8 +64,9 @@ Tab 补全：对一级子命令提供补全，并对部分参数给予提示。
 - 首次启动自动写入：
   ```yml
   sid: <自动生成的UUID>
+  player-url: 'https://music.met6.top:444/player/?sid={sid}'
   ```
-- 说明：`sid` 为匿名会话 ID，用于播放状态上报；通常无需手动修改。
+- 说明：`sid` 为匿名会话 ID，用于播放状态上报；通常无需手动修改。`player-url` 可配置播放器地址，其中 `{sid}` 会自动替换为当前 SID。
 
 ## 外部接口与隐私说明
 插件会访问以下接口（域名 `https://music.met6.top:444`）：

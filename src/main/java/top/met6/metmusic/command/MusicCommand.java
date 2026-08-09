@@ -87,6 +87,9 @@ public class MusicCommand implements CommandExecutor, TabCompleter {
             case "setbossbar":
                 plugin.getBossbarDisplay().togglePlayerBossbar(player);
                 break;
+            case "sid":
+                sendSessionInfo(player);
+                break;
             case "playlist":
                 int page = 1;
                 if (args.length > 1) {
@@ -206,7 +209,29 @@ public class MusicCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§6/mmusic setseek <秒数>§f: 设置播放进度");
         player.sendMessage("§6/mmusic songinfo§f: 查看当前歌曲信息");
         player.sendMessage("§6/mmusic setbossbar§f: 切换歌词 Bossbar 的显示状态");
+        player.sendMessage("§6/mmusic sid§f: 查看当前播放器 SID 和链接");
+        TextComponent openPlayer = new TextComponent("§n§b点击打开播放器");
+        openPlayer.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, plugin.getPluginConfig().getPlayerUrl()));
+        openPlayer.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击在浏览器中打开播放器").create()));
+        player.spigot().sendMessage(openPlayer);
         player.sendMessage("§e--------------------");
+    }
+
+    private void sendSessionInfo(Player player) {
+        String sid = plugin.getPluginConfig().getSessionId();
+        String playerUrl = plugin.getPluginConfig().getPlayerUrl();
+
+        player.sendMessage("§e--- MeT-Music 播放器 ---");
+        TextComponent sidComponent = new TextComponent("§fSID: §b" + sid);
+        sidComponent.setClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, sid));
+        sidComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击复制 SID").create()));
+        player.spigot().sendMessage(sidComponent);
+
+        TextComponent linkComponent = new TextComponent("§f播放器链接: §n§b" + playerUrl);
+        linkComponent.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, playerUrl));
+        linkComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击在浏览器中打开播放器").create()));
+        player.spigot().sendMessage(linkComponent);
+        player.sendMessage("§e-----------------------");
     }
 
     private void searchAndDisplay(Player player, String keyword, int page) {
@@ -428,7 +453,7 @@ public class MusicCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("help", "playmid", "play", "pause", "setseek", "setbossbar", "playlist", "next", "clear", "songinfo", "search", "songlist", "playsonglist", "playsearch");
+            return Arrays.asList("help", "sid", "playmid", "play", "pause", "setseek", "setbossbar", "playlist", "next", "clear", "songinfo", "search", "songlist", "playsonglist", "playsearch");
         }
         if (args.length > 1) {
             String subCommand = args[0].toLowerCase();
