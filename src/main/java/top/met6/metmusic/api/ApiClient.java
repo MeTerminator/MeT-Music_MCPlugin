@@ -9,6 +9,7 @@ import top.met6.metmusic.data.LrcLine;
 import top.met6.metmusic.data.PlaylistSong;
 import top.met6.metmusic.data.SongInfo;
 import top.met6.metmusic.data.SearchResult;
+import top.met6.metmusic.data.SearchPage;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -44,10 +45,6 @@ public class ApiClient {
 
     private final Map<String, SongInfo> songInfoCache = new ConcurrentHashMap<>();
     private final Map<String, List<LrcLine>> lyricCache = new ConcurrentHashMap<>();
-
-    private String lastSearchKeyword = "";
-    private final List<SearchResult> lastSearchResults = new ArrayList<>();
-    private int lastSearchTotalCount = 0;
 
     public ApiClient(Logger logger) {
         this.logger = logger;
@@ -194,19 +191,14 @@ public class ApiClient {
         return lrcLines;
     }
 
-    public List<SearchResult> searchSongs(String keyword, int page, int limit) {
+    public SearchPage searchSongs(String keyword, int page, int limit) {
+        if (page < 1 || limit < 1) {
+            throw new IllegalArgumentException("page and limit must be positive");
+        }
         int offset = (page - 1) * limit;
 
-        if (keyword.equals(lastSearchKeyword) && !lastSearchResults.isEmpty()) {
-            int startIndex = (page - 1) * limit;
-            int endIndex = Math.min(startIndex + limit, lastSearchResults.size());
-            if (startIndex < lastSearchResults.size()) {
-                return lastSearchResults.subList(startIndex, endIndex);
-            }
-            return new ArrayList<>();
-        }
-
         List<SearchResult> results = new ArrayList<>();
+        int totalCount = 0;
         try {
             String encodedKeyword = java.net.URLEncoder.encode(keyword, StandardCharsets.UTF_8.toString());
             URL url = new URL(String.format(SEARCH_API, encodedKeyword, limit, offset));
@@ -227,7 +219,7 @@ public class ApiClient {
                     JsonObject jsonResponse = JsonParser.parseString(response.toString()).getAsJsonObject();
                     JsonObject resultObject = jsonResponse.getAsJsonObject("result");
                     JsonArray songsArray = resultObject.getAsJsonArray("songs");
-                    lastSearchTotalCount = resultObject.get("songCount").getAsInt();
+                    totalCount = resultObject.get("songCount").getAsInt();
 
                     for (var songJson : songsArray) {
                         JsonObject song = songJson.getAsJsonObject();
@@ -252,17 +244,7 @@ public class ApiClient {
             return null;
         }
 
-        if (!keyword.equals(lastSearchKeyword)) {
-            lastSearchResults.clear();
-            lastSearchKeyword = keyword;
-        }
-        lastSearchResults.addAll(results);
-
-        return results;
-    }
-
-    public int getLastSearchTotalCount() {
-        return lastSearchTotalCount;
+        return new SearchPage(results, totalCount);
     }
 
     /**
@@ -345,19 +327,4 @@ public class ApiClient {
         return playlistTotalCountCache.getOrDefault(playlistId, 0);
     }
 
-    /**
-     * 获取上次搜索的关键字
-     * @return 上次搜索的关键字
-     */
-    public String getLastSearchKeyword() {
-        return lastSearchKeyword;
-    }
-
-    /**
-     * 获取上次搜索的结果
-     * @return 上次搜索的结果列表
-     */
-    public List<SearchResult> getLastSearchResults() {
-        return new ArrayList<>(lastSearchResults);
-    }
 }

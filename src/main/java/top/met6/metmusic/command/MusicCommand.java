@@ -12,18 +12,33 @@ import org.bukkit.entity.Player;
 import top.met6.metmusic.MetMusicPlugin;
 import top.met6.metmusic.data.PlaylistSong;
 import top.met6.metmusic.data.SearchResult;
+import top.met6.metmusic.data.SearchPage;
 import top.met6.metmusic.data.SongData;
 import top.met6.metmusic.manager.MusicPlaybackManager;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MusicCommand implements CommandExecutor, TabCompleter {
 
     private final MetMusicPlugin plugin;
     private static final int SONGS_PER_PAGE = 10;
     private static final int SEARCH_RESULTS_PER_PAGE = 10;
+    private final Map<UUID, SearchSession> searchSessions = new ConcurrentHashMap<>();
+
+    private static class SearchSession {
+        private final int page;
+        private final List<SearchResult> results;
+
+        private SearchSession(int page, List<SearchResult> results) {
+            this.page = page;
+            this.results = results;
+        }
+    }
 
     public MusicCommand(MetMusicPlugin plugin) {
         this.plugin = plugin;
@@ -110,21 +125,20 @@ public class MusicCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage("§c用法: /mmusic search <关键字> [页码]");
                     return true;
                 }
-                String keyword = "";
                 int searchPage = 1;
-
-                for (int i = 1; i < args.length; i++) {
+                int keywordEnd = args.length;
+                if (args.length > 2) {
                     try {
-                        searchPage = Integer.parseInt(args[i]);
-                    } catch (NumberFormatException e) {
-                        keyword += args[i] + " ";
+                        searchPage = Integer.parseInt(args[args.length - 1]);
+                        keywordEnd--;
+                    } catch (NumberFormatException ignored) {
                     }
                 }
-                keyword = keyword.trim();
-                if (keyword.isEmpty()) {
-                    player.sendMessage("§c用法: /mmusic search <关键字> [页码]");
+                if (searchPage < 1) {
+                    player.sendMessage("§c页码必须是大于 0 的整数。");
                     return true;
                 }
+                String keyword = String.join(" ", Arrays.copyOfRange(args, 1, keywordEnd));
 
                 searchAndDisplay(player, keyword, searchPage);
                 break;
@@ -238,15 +252,27 @@ public class MusicCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§a正在搜索歌曲: " + keyword + "...");
 
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            List<SearchResult> results = plugin.getApiClient().searchSongs(keyword, page, SEARCH_RESULTS_PER_PAGE);
+            SearchPage searchPage = plugin.getApiClient().searchSongs(keyword, page, SEARCH_RESULTS_PER_PAGE);
 
-            if (results == null || results.isEmpty()) {
-                player.sendMessage("§c未找到相关歌曲。");
+            if (searchPage == null) {
+                plugin.getServer().getScheduler().runTask(plugin, () -> player.sendMessage("§c搜索失败，请稍后重试。"));
                 return;
             }
 
-            int totalCount = plugin.getApiClient().getLastSearchTotalCount();
+            List<SearchResult> results = searchPage.getResults();
+            int totalCount = searchPage.getTotalCount();
             int totalPages = (int) Math.ceil((double) totalCount / SEARCH_RESULTS_PER_PAGE);
+
+            if (totalCount == 0) {
+                plugin.getServer().getScheduler().runTask(plugin, () -> player.sendMessage("§c未找到相关歌曲。"));
+                return;
+            }
+            if (page > totalPages || results.isEmpty()) {
+                plugin.getServer().getScheduler().runTask(plugin, () -> player.sendMessage("§c页码超出范围。总页数为: " + totalPages));
+                return;
+            }
+
+            searchSessions.put(player.getUniqueId(), new SearchSession(page, results));
 
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 player.sendMessage("§6--- 搜索结果 (第 " + page + " / " + totalPages + " 页) ---");
@@ -277,7 +303,7 @@ public class MusicCommand implements CommandExecutor, TabCompleter {
                     navigation.addExtra(next);
                 }
 
-                if (page <= totalPages) {
+                if (page > 1 || page < totalPages) {
                     player.spigot().sendMessage(navigation);
                 }
 
@@ -366,17 +392,18 @@ public class MusicCommand implements CommandExecutor, TabCompleter {
     private void playSongFromSearch(Player player, int index) {
         player.sendMessage("§a正在获取搜索结果，请稍候...");
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            List<SearchResult> searchResults = plugin.getApiClient().getLastSearchResults();
-            String lastKeyword = plugin.getApiClient().getLastSearchKeyword();
-            if (searchResults == null || searchResults.isEmpty() || lastKeyword == null || lastKeyword.isEmpty()) {
+            SearchSession session = searchSessions.get(player.getUniqueId());
+            if (session == null || session.results.isEmpty()) {
                 player.sendMessage("§c没有可用的搜索结果。请先使用 /mmusic search 进行搜索。");
                 return;
             }
-            if (index < 1 || index > searchResults.size()) {
-                player.sendMessage("§c序号超出范围。请输入 1 到 " + searchResults.size() + " 之间的整数。");
+            int firstIndex = (session.page - 1) * SEARCH_RESULTS_PER_PAGE + 1;
+            int lastIndex = firstIndex + session.results.size() - 1;
+            if (index < firstIndex || index > lastIndex) {
+                player.sendMessage("§c序号超出范围。请输入 " + firstIndex + " 到 " + lastIndex + " 之间的整数。");
                 return;
             }
-            SearchResult songToPlay = searchResults.get(index - 1);
+            SearchResult songToPlay = session.results.get(index - firstIndex);
             addAndPlay(player, songToPlay.getMid());
         });
     }
@@ -443,7 +470,7 @@ public class MusicCommand implements CommandExecutor, TabCompleter {
             navigation.addExtra(next);
         }
 
-        if (page <= totalPages) {
+        if (page > 1 || page < totalPages) {
             player.spigot().sendMessage(navigation);
         }
 
