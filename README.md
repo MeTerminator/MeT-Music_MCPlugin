@@ -2,7 +2,7 @@
 
 > 仅供学习交流使用，严禁大规模宣传本项目，若流量过大，将考虑限制使用。
 
-一个基于 Paper 的 Minecraft 服务器点歌/队列/歌词展示插件（服务端侧进度与歌词模拟，不向客户端推送真实音频）。
+一个基于 Paper 的 Minecraft 服务器点歌、共享播放队列与歌词展示插件。插件在服务端模拟播放进度并同步状态，本身不向 Minecraft 客户端推送真实音频。
 
 ![效果展示](.github/images/img1.png)
 
@@ -10,13 +10,13 @@
 - **歌词与进度**：使用 BossBar 为全体在线玩家实时显示歌词与播放进度
 - **歌单浏览与播放**：按歌单 TID 查看歌曲，支持按序号播放
 - **播放控制**：继续/暂停、下一首、清空队列、设置播放进度
-- **状态上报**：首次启动自动生成匿名会话 ID（sid），周期性上报播放状态
+- **状态上报**：首次启动自动生成匿名会话 ID（SID），在播放状态变化及播放期间上报状态
 
 ---
 
 ## 播放端
 
-- 此插件并不负责客户端音乐播放，客户端音乐播放由额外的网页或播放器实现。具体代码将在后续开源。
+- 此插件不负责向 Minecraft 客户端播放音频。玩家可通过 `/mmusic sid` 打开配置的网页播放器，并使用同一 SID 接收播放状态。
 
 ## 兼容性与运行环境
 - **服务器内核**：建议 Paper 1.20.x（`compileOnly io.papermc.paper:paper-api:1.20.1`，`api-version: 1.16` 对常见 Spigot/Paper 有较好兼容）
@@ -39,13 +39,17 @@
   - `/mmusic playmid <mid>`
 - **搜索歌曲**
   - `/mmusic search <关键字> [页码]`
-  - 在结果列表中点击可直接添加至队列
+  - 每页显示 10 条结果，可点击歌曲直接添加至共享播放队列
+  - 多词关键字可直接使用空格分隔；仅最后一个参数在关键字后且为整数时才作为页码
 - **播放搜索结果中的序号**
-  - `/mmusic playsearch <序号>`（需先执行搜索）
+  - `/mmusic playsearch <序号>`（使用该玩家最近查看的搜索结果页及页面中显示的序号）
 - **查看歌单**
   - `/mmusic songlist <tid> [页码]`
+  - 每页显示 10 首歌曲
 - **播放歌单中的指定序号**
   - `/mmusic playsonglist <tid> <序号>`
+- **查看共享播放队列**
+  - `/mmusic playlist [页码]`
 - **播放控制**
   - `/mmusic play` 继续播放
   - `/mmusic pause` 暂停播放
@@ -66,23 +70,26 @@ Tab 补全：对一级子命令提供补全，并对部分参数给予提示。
   sid: <自动生成的UUID>
   player-url: 'https://music.met6.top:444/player/?sid={sid}'
   ```
-- 说明：`sid` 为匿名会话 ID，用于播放状态上报；通常无需手动修改。`player-url` 可配置播放器地址，其中 `{sid}` 会自动替换为当前 SID。
+- 说明：`sid` 为空时，插件会在首次启动时生成 UUID 并写回配置文件。它用于区分播放器会话和上报播放状态，通常无需手动修改。`player-url` 可配置播放器地址，其中所有 `{sid}` 都会替换为当前 SID。
 
 ## 外部接口与隐私说明
 插件会访问以下接口（域名 `https://music.met6.top:444`）：
-- 获取歌曲信息与时长：`/api/song/url/v1/?id=<mid>&level=hq`
-- 获取歌词（LRC）：`/api/songlyric_get.php?show=lyric&mid=<mid>`
-- 搜索：`/api/cloudsearch/?keywords=<encoded>&limit=<n>&offset=<n>&type=1`
-- 歌单详情与曲目：`/api/playlist/detail/?id=<tid>`、`/api/playlist/track/all/?id=<tid>&limit=<n>&offset=<n>`
-- 播放状态上报：`/api-collect/user_report/player_feedback_mcserver.php`
+- 获取歌曲地址、信息与时长：`/api/web/song/url/v1?id=<mid>&level=hq`
+- 获取歌词（LRC）：`/api/v1/lrc?mid=<mid>`
+- 搜索：`/api/web/cloudsearch?keywords=<encoded>&limit=<n>&offset=<n>&type=1`
+- 歌单详情与曲目：`/api/web/playlist/detail?id=<tid>`、`/api/web/playlist/track/all?id=<tid>&limit=<n>&offset=0`
+- 播放状态上报：`/api/v1/collect/feedback/mcplugin`
 
 上报字段示例（见 `ApiClient.reportPlaybackStatus()`）：
 - `event`：play/pause/progress
 - `sessionId`：服务器匿名会话 ID（来自 `config.yml` 的 `sid`）
+- `userId`：当前固定为 `null`
 - `songMid`：歌曲 MID
 - `status`：播放状态布尔值
 - `currentTime`：当前进度（秒）
 - `systemTime`：系统时间戳
+
+开始播放、继续播放、暂停和跳转进度时会立即上报相应状态；播放期间约每 10 秒上报一次 `progress`。
 
 如需停用上报或更换接口，请修改源码常量并自行构建。
 
@@ -137,8 +144,9 @@ Tab 补全：对一级子命令提供补全，并对部分参数给予提示。
 ## 已知限制
 - 不在客户端播放真实音频，仅基于歌词时间轴与 BossBar 做可视化。
 - 需要外网访问 `music.met6.top:444`。
-- 播放队列去重：相同 `mid` 不会重复入队。
+- 播放队列为全服共享队列；相同 `mid` 不会重复入队。
 - `playsearch` 仅使用该玩家最近查看的搜索结果页，序号与页面中显示的全局序号一致。
+- 歌单首次读取时会一次获取全部歌曲并缓存在内存中；插件运行期间不会自动刷新该歌单缓存。
 
 ## 许可证
 本项目使用 **MIT License** 开源，详见 `LICENSE`。
